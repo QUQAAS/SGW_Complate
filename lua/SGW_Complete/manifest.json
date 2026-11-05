@@ -1,0 +1,12 @@
+{
+  "name": "SGW_Complete",
+  "version": "1.0.0",
+  "description": "Sönmez Game World - Complete Mod Pack (CarSwap, WheelSwap, Stance, SkinSwap, Race)",
+  "author": "Sönmez Game World",
+  "scripts": [
+    {
+      "filename": "main.lua",
+      "type": "app"
+    }
+  ]
+}
