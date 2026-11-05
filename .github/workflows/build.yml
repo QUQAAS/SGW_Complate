@@ -1,0 +1,86 @@
+name: Build SGW.Complete.Server
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET 11
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '11.0.x'
+
+    - name: Add AssettoServer NuGet source
+      run: |
+        mkdir -p ~/.nuget/NuGet
+        cat > ~/.nuget/NuGet/NuGet.Config << 'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <packageSources>
+            <clear />
+            <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+            <add key="AssettoServer" value="https://nuget.pkg.github.com/assettoserver/index.json" />
+          </packageSources>
+          <packageSourceCredentials>
+            <AssettoServer>
+              <add key="Username" value="QUQAAS" />
+              <add key="ClearTextPassword" value="${{ secrets.NUGET_TOKEN }}" />
+            </AssettoServer>
+          </packageSourceCredentials>
+        </configuration>
+        EOF
+
+    - name: Restore
+      run: dotnet restore src/SGW.Complete.Server/SGW.Complete.Server.csproj
+
+    - name: Build
+      run: dotnet build src/SGW.Complete.Server/SGW.Complete.Server.csproj -c Release --no-restore
+
+    - name: Publish
+      run: dotnet publish src/SGW.Complete.Server/SGW.Complete.Server.csproj -c Release -o ./artifacts --no-build
+
+    - name: Upload DLL
+      uses: actions/upload-artifact@v4
+      with:
+        name: SGW.Complete.Server
+        path: ./artifacts/
+        retention-days: 30
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v4
+      with:
+        name: SGW.Complete.Server
+        path: ./artifacts
+
+    - name: Package all
+      run: |
+        mkdir -p ./release/plugins ./release/lua ./release/python ./release/assets ./release/docs
+        cp ./artifacts/SGW.Complete.Server.dll ./release/plugins/
+        cp -r ./lua/SGW_Complete ./release/lua/
+        cp -r ./python/* ./release/python/
+        cp ./assets/icon.png ./release/assets/ 2>/dev/null || true
+        cp -r ./docs/* ./release/docs/
+        cd ./release
+        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+        zip -r ../SGW_Complete_${SHORT_SHA}.zip .
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: SGW_Complete_Release
+        path: ./SGW_Complete_*.zip
+        retention-days: 30
